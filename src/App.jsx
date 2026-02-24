@@ -5,6 +5,11 @@ import ChatPanel from './components/ChatPanel';
 import ReadingProgress from './components/ReadingProgress';
 import { themes, applyTheme } from './themes';
 
+/** URL por defecto de la API de LM Studio */
+const DEFAULT_AI_URL = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_LM_STUDIO_URL
+  ? import.meta.env.VITE_LM_STUDIO_URL
+  : 'http://localhost:1234/v1/chat/completions';
+
 // Carga dinámica de todos los archivos .md en src/Resources
 const guidesModules = import.meta.glob('./Resources/*.md', { query: '?raw', eager: true });
 
@@ -18,6 +23,11 @@ function App() {
     return themes.find(t => t.id === savedId) ?? themes[0];
   });
 
+  // Estado para la URL de la IA y el modal de configuración
+  const [aiUrl, setAiUrl] = useState(() => localStorage.getItem('codex-ai-url') || DEFAULT_AI_URL);
+  const [showSettings, setShowSettings] = useState(false);
+  const [tempUrl, setTempUrl] = useState('');
+
   // Aplica el tema guardado al montar la app
   useEffect(() => {
     applyTheme(currentTheme);
@@ -28,6 +38,17 @@ function App() {
     setCurrentTheme(theme);
     applyTheme(theme);
     localStorage.setItem('guia-reader-theme', theme.id);
+  };
+
+  const openSettings = () => {
+    setTempUrl(aiUrl);
+    setShowSettings(true);
+  };
+
+  const saveSettings = () => {
+    setAiUrl(tempUrl);
+    localStorage.setItem('codex-ai-url', tempUrl);
+    setShowSettings(false);
   };
 
   // Al cambiar de guía, volver al inicio del scroll
@@ -57,6 +78,7 @@ function App() {
         onSelect={handleSelectGuide}
         currentTheme={currentTheme}
         onThemeChange={handleThemeChange}
+        onOpenSettings={openSettings}
       />
 
       <main className="main-content" ref={mainContentRef}>
@@ -85,7 +107,40 @@ function App() {
         <ChatPanel
           guideContent={selectedGuide.content}
           guideName={selectedGuide.name}
+          aiUrl={aiUrl}
         />
+      )}
+
+      {/* Modal de Configuración */}
+      {showSettings && (
+        <div className="modal-overlay" onClick={() => setShowSettings(false)}>
+          <div className="settings-modal" onClick={e => e.stopPropagation()}>
+            <div className="settings-header">
+              <h3>⚙️ Configuración Codex</h3>
+              <button className="settings-close" onClick={() => setShowSettings(false)}>✕</button>
+            </div>
+            <div className="settings-body">
+              <label className="settings-label">
+                URL de Conexión IA (LM Studio):
+                <input
+                  type="text"
+                  className="settings-input"
+                  value={tempUrl}
+                  onChange={e => setTempUrl(e.target.value)}
+                  placeholder="http://192.168.1.X:1234/v1/chat/completions"
+                />
+              </label>
+              <p className="settings-hint">
+                Si ejecutas LM Studio en otro PC de tu red local, pon su IP aquí.
+                Asegúrate de tener el <strong>CORS activado</strong> y servidor corriendo en <strong>0.0.0.0</strong> en tu LM Studio.
+              </p>
+            </div>
+            <div className="settings-footer">
+              <button className="annotation-cancel-btn" onClick={() => setShowSettings(false)}>Cancelar</button>
+              <button className="annotation-save-btn" onClick={saveSettings}>💾 Guardar</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

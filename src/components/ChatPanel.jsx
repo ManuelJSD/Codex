@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 
-/** URL de la API local de LM Studio */
-const LM_STUDIO_URL = 'http://localhost:1234/v1/chat/completions';
+/** URL de la API de LM Studio. Usa variable de entorno o localhost por defecto */
+const LM_STUDIO_URL = import.meta.env.VITE_LM_STUDIO_URL || 'http://localhost:1234/v1/chat/completions';
 
 /**
  * Panel de chat con IA conectado a LM Studio.

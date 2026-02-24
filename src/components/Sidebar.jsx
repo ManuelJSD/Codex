@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { themes } from '../themes';
 
-export default function Sidebar({ guides, selected, onSelect, currentTheme, onThemeChange }) {
+export default function Sidebar({ guides, selected, onSelect, currentTheme, onThemeChange, onOpenSettings }) {
     const [search, setSearch] = useState('');
 
     // Filtrado insensible a mayúsculas
@@ -11,8 +11,11 @@ export default function Sidebar({ guides, selected, onSelect, currentTheme, onTh
 
     return (
         <aside className="sidebar">
-            {/* Título */}
-            <h2>Codex</h2>
+            {/* Cabecera con Título y Ajustes */}
+            <div className="sidebar-header">
+                <h2>Codex</h2>
+                <button className="settings-btn" onClick={onOpenSettings} title="Configuración">⚙️</button>
+            </div>
 
             {/* Buscador */}
             <div className="sidebar-search">

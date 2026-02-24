@@ -103,19 +103,80 @@ export default function MarkdownViewer({ content, guideKey }) {
         setActivePopover(null);
     }, [guideKey]);
 
-    // Aplicar highlights y asignar IDs a headings tras cada render
+    // Aplicar highlights e inyectar pines/IDs a headings tras cada render
     useEffect(() => {
         const container = containerRef.current;
         if (!container) return;
 
-        // Asignar IDs únicos a todos los encabezados h1/h2/h3
-        container.querySelectorAll('h1, h2, h3').forEach(el => {
-            const slug = slugify(el.textContent);
-            el.id = `heading-${slug}`;
+        // Recuperar bookmarks actuales para saber la clase inicial del botón
+        const initialBookmarks = JSON.parse(localStorage.getItem(`codex-bookmarks:${guideKey}`) || '[]');
+
+        // Procesar h1-h6 y p para asignar IDs e inyectar botones de Pin
+        container.querySelectorAll('h1, h2, h3, h4, h5, h6, p').forEach((el, index) => {
+            // Asignar ID
+            if (el.tagName.startsWith('H')) {
+                const slug = slugify(el.textContent);
+                el.id = `heading-${slug}`;
+            } else {
+                if (!el.id) el.id = `para-${index}`;
+            }
+
+            // Evitar duplicar botones si el componente se re-ejecuta
+            if (!el.querySelector('.pin-action-btn')) {
+                el.classList.add('pinnable-element');
+
+                const pinBtn = document.createElement('button');
+                const isPinned = initialBookmarks.some(b => b.id === el.id);
+
+                pinBtn.className = `pin-action-btn ${isPinned ? 'pinned' : ''}`;
+                pinBtn.innerHTML = '📌';
+                pinBtn.title = isPinned ? 'Quitar marcador' : 'Fijar marcador';
+
+                pinBtn.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const cleanText = el.textContent.replace('📌', '').trim();
+                    const text = cleanText.length > 35 ? cleanText.slice(0, 35) + '...' : cleanText;
+
+                    window.dispatchEvent(new CustomEvent('toggle-bookmark', {
+                        detail: {
+                            id: el.id,
+                            text: text || 'Elemento sin texto'
+                        }
+                    }));
+                };
+
+                el.prepend(pinBtn);
+            }
         });
 
         applyHighlights(container, annotations);
-    }, [annotations, content]);
+    }, [annotations, content, guideKey]);
+
+    // Escuchar cambios en los bookmarks desde el Sidebar para actualizar visualmente los botones
+    useEffect(() => {
+        const handleBookmarksUpdated = (e) => {
+            const currentBookmarks = e.detail;
+            const container = containerRef.current;
+            if (!container) return;
+
+            container.querySelectorAll('.pin-action-btn').forEach(btn => {
+                const parentId = btn.parentElement.id;
+                const isPinned = currentBookmarks.some(b => b.id === parentId);
+
+                if (isPinned) {
+                    btn.classList.add('pinned');
+                    btn.title = 'Quitar marcador';
+                } else {
+                    btn.classList.remove('pinned');
+                    btn.title = 'Fijar marcador';
+                }
+            });
+        };
+
+        window.addEventListener('bookmarks-changed', handleBookmarksUpdated);
+        return () => window.removeEventListener('bookmarks-changed', handleBookmarksUpdated);
+    }, []);
 
     // IntersectionObserver para resaltar el heading activo en la ToC
     useEffect(() => {

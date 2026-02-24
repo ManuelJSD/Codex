@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import MarkdownViewer from './components/MarkdownViewer';
 import ChatPanel from './components/ChatPanel';
@@ -27,6 +27,62 @@ function App() {
   const [aiUrl, setAiUrl] = useState(() => localStorage.getItem('codex-ai-url') || DEFAULT_AI_URL);
   const [showSettings, setShowSettings] = useState(false);
   const [tempUrl, setTempUrl] = useState('');
+
+  // Estado para controlar la visibilidad de los paneles
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    const saved = localStorage.getItem('codex-sidebar-open');
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  const [isChatOpen, setIsChatOpen] = useState(() => {
+    const saved = localStorage.getItem('codex-chat-open');
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  // Estado para el ancho redimensionable del chat
+  const [chatWidth, setChatWidth] = useState(() => {
+    const saved = localStorage.getItem('codex-chat-width');
+    return saved ? parseInt(saved, 10) : 340;
+  });
+
+  const isResizing = useRef(false);
+
+  // Manejo del redimensionado
+  const handleResizeChat = useCallback((e) => {
+    if (!isResizing.current) return;
+    const newWidth = window.innerWidth - e.clientX;
+    if (newWidth >= 280 && newWidth <= 800) {
+      setChatWidth(newWidth);
+    }
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    isResizing.current = false;
+    document.body.style.cursor = 'default';
+    window.removeEventListener('mousemove', handleResizeChat);
+    window.removeEventListener('mouseup', stopResizing);
+  }, [handleResizeChat]);
+
+  const startResizing = useCallback((e) => {
+    e.preventDefault();
+    isResizing.current = true;
+    document.body.style.cursor = 'col-resize';
+    window.addEventListener('mousemove', handleResizeChat);
+    window.addEventListener('mouseup', stopResizing);
+  }, [handleResizeChat, stopResizing]);
+
+  // Persistir estado de los paneles y el ancho
+  useEffect(() => {
+    localStorage.setItem('codex-sidebar-open', isSidebarOpen);
+  }, [isSidebarOpen]);
+
+  useEffect(() => {
+    localStorage.setItem('codex-chat-open', isChatOpen);
+  }, [isChatOpen]);
+
+  useEffect(() => {
+    localStorage.setItem('codex-chat-width', chatWidth);
+  }, [chatWidth]);
 
   // Aplica el tema guardado al montar la app
   useEffect(() => {
@@ -71,7 +127,10 @@ function App() {
   });
 
   return (
-    <div className="app-container">
+    <div
+      className={`app-container ${!isSidebarOpen ? 'sidebar-closed' : ''} ${!isChatOpen ? 'chat-closed' : ''}`}
+      style={{ '--chat-width': `${chatWidth}px` }}
+    >
       <Sidebar
         guides={guides}
         selected={selectedGuide}
@@ -81,11 +140,30 @@ function App() {
         onOpenSettings={openSettings}
       />
 
+      {/* Toggle Edge Tabs para Paneles Lateral y Chat */}
+      <button
+        className={`edge-toggle-tab left-edge ${isSidebarOpen ? 'open' : ''}`}
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        title={isSidebarOpen ? 'Ocultar menú lateral' : 'Mostrar menú lateral'}
+        style={isSidebarOpen && window.innerWidth > 768 ? { left: '280px' } : {}}
+      >
+        <span>▶</span>
+      </button>
+
+      {selectedGuide && (
+        <button
+          className={`edge-toggle-tab right-edge ${isChatOpen ? 'open' : ''}`}
+          onClick={() => setIsChatOpen(!isChatOpen)}
+          title={isChatOpen ? 'Ocultar Asistente IA' : 'Mostrar Asistente IA'}
+          style={isChatOpen && window.innerWidth > 768 ? { right: `${chatWidth}px` } : {}}
+        >
+          <span>◀</span>
+        </button>
+      )}
+
       <main className="main-content" ref={mainContentRef}>
         {/* Barra de progreso de lectura */}
-        {selectedGuide && (
-          <ReadingProgress scrollRef={mainContentRef} />
-        )}
+        <ReadingProgress containerRef={mainContentRef} />
 
         {selectedGuide ? (
           <MarkdownViewer
@@ -102,12 +180,14 @@ function App() {
         )}
       </main>
 
-      {/* Panel de chat: solo visible cuando hay una guía activa */}
+      {/* Panel de chat: siempre renderizado; oculto vía clase chat-closed para transiciones suaves */}
       {selectedGuide && (
         <ChatPanel
           guideContent={selectedGuide.content}
           guideName={selectedGuide.name}
           aiUrl={aiUrl}
+          chatWidth={chatWidth}
+          onResizeStart={startResizing}
         />
       )}
 

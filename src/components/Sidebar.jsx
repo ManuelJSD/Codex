@@ -1,0 +1,52 @@
+import { themes } from '../themes';
+
+export default function Sidebar({ guides, selected, onSelect, currentTheme, onThemeChange }) {
+    return (
+        <aside className="sidebar">
+            {/* Título */}
+            <h2>📚 Librería de Guías</h2>
+
+            {/* Lista de guías */}
+            <div className="guide-list">
+                {guides.length === 0 && (
+                    <div className="guide-item-empty">
+                        No se encontraron guías en <code>src/Resources</code>
+                    </div>
+                )}
+                {guides.map((guide) => (
+                    <button
+                        key={guide.path}
+                        className={`guide-item ${selected?.path === guide.path ? 'active' : ''}`}
+                        onClick={() => onSelect(guide)}
+                    >
+                        {guide.name}
+                    </button>
+                ))}
+            </div>
+
+            {/* Separador */}
+            <hr className="sidebar-divider" />
+
+            {/* Selector de tema */}
+            <div className="theme-section">
+                <h3 className="theme-title">🎨 Tema</h3>
+                <div className="theme-picker">
+                    {themes.map((theme) => (
+                        <button
+                            key={theme.id}
+                            className={`theme-btn ${currentTheme?.id === theme.id ? 'theme-active' : ''}`}
+                            onClick={() => onThemeChange(theme)}
+                            title={theme.name}
+                        >
+                            <span className="theme-dot" style={{
+                                background: theme.vars['--accent'],
+                                boxShadow: `0 0 6px ${theme.vars['--accent']}`
+                            }} />
+                            <span className="theme-label">{theme.name}</span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+        </aside>
+    );
+}

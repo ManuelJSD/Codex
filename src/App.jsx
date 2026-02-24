@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import MarkdownViewer from './components/MarkdownViewer';
+import ChatPanel from './components/ChatPanel';
 import { themes, applyTheme } from './themes';
 
 // Carga dinámica de todos los archivos .md en src/Resources
@@ -59,8 +60,17 @@ function App() {
           </div>
         )}
       </main>
+
+      {/* Panel de chat: solo visible cuando hay una guía activa */}
+      {selectedGuide && (
+        <ChatPanel
+          guideContent={selectedGuide.content}
+          guideName={selectedGuide.name}
+        />
+      )}
     </div>
   );
 }
 
 export default App;
+

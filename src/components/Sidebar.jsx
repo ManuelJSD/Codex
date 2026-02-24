@@ -1,19 +1,46 @@
+import { useState } from 'react';
 import { themes } from '../themes';
 
 export default function Sidebar({ guides, selected, onSelect, currentTheme, onThemeChange }) {
+    const [search, setSearch] = useState('');
+
+    // Filtrado insensible a mayúsculas
+    const filteredGuides = guides.filter(g =>
+        g.name.toLowerCase().includes(search.toLowerCase())
+    );
+
     return (
         <aside className="sidebar">
             {/* Título */}
             <h2>📚 Librería de Guías</h2>
 
-            {/* Lista de guías */}
+            {/* Buscador */}
+            <div className="sidebar-search">
+                <input
+                    type="text"
+                    className="search-input"
+                    placeholder="🔍 Buscar guía..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                />
+                {search && (
+                    <button className="search-clear" onClick={() => setSearch('')} title="Limpiar">
+                        ✕
+                    </button>
+                )}
+            </div>
+
+            {/* Lista de guías filtradas */}
             <div className="guide-list">
-                {guides.length === 0 && (
+                {filteredGuides.length === 0 && (
                     <div className="guide-item-empty">
-                        No se encontraron guías en <code>src/Resources</code>
+                        {guides.length === 0
+                            ? <span>No se encontraron guías en <code>src/Resources</code></span>
+                            : <span>Sin resultados para <em>"{search}"</em></span>
+                        }
                     </div>
                 )}
-                {guides.map((guide) => (
+                {filteredGuides.map((guide) => (
                     <button
                         key={guide.path}
                         className={`guide-item ${selected?.path === guide.path ? 'active' : ''}`}

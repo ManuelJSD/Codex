@@ -12,7 +12,7 @@ export default function Sidebar({ guides, selected, onSelect, currentTheme, onTh
     return (
         <aside className="sidebar">
             {/* Título */}
-            <h2>📚 Librería de Guías</h2>
+            <h2>Codex</h2>
 
             {/* Buscador */}
             <div className="sidebar-search">

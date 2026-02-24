@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import MarkdownViewer from './components/MarkdownViewer';
 import ChatPanel from './components/ChatPanel';
+import ReadingProgress from './components/ReadingProgress';
 import { themes, applyTheme } from './themes';
 
 // Carga dinámica de todos los archivos .md en src/Resources
@@ -9,6 +10,7 @@ const guidesModules = import.meta.glob('./Resources/*.md', { query: '?raw', eage
 
 function App() {
   const [selectedGuide, setSelectedGuide] = useState(null);
+  const mainContentRef = useRef(null);
 
   // Recupera el tema guardado en localStorage, o usa el primero por defecto
   const [currentTheme, setCurrentTheme] = useState(() => {
@@ -28,6 +30,14 @@ function App() {
     localStorage.setItem('guia-reader-theme', theme.id);
   };
 
+  // Al cambiar de guía, volver al inicio del scroll
+  const handleSelectGuide = (guide) => {
+    setSelectedGuide(guide);
+    if (mainContentRef.current) {
+      mainContentRef.current.scrollTop = 0;
+    }
+  };
+
   // Construye la lista de guías a partir del glob
   const guides = Object.keys(guidesModules).map(path => {
     const filename = path.split('/').pop();
@@ -44,18 +54,27 @@ function App() {
       <Sidebar
         guides={guides}
         selected={selectedGuide}
-        onSelect={setSelectedGuide}
+        onSelect={handleSelectGuide}
         currentTheme={currentTheme}
         onThemeChange={handleThemeChange}
       />
 
-      <main className="main-content">
+      <main className="main-content" ref={mainContentRef}>
+        {/* Barra de progreso de lectura */}
+        {selectedGuide && (
+          <ReadingProgress scrollRef={mainContentRef} />
+        )}
+
         {selectedGuide ? (
-          <MarkdownViewer content={selectedGuide.content} />
+          <MarkdownViewer
+            key={selectedGuide.path}
+            content={selectedGuide.content}
+            guideKey={selectedGuide.path}
+          />
         ) : (
           <div className="welcome-msg">
             <div className="welcome-icon">📖</div>
-            <h2>Bienvenido al Lector de Guías</h2>
+            <h2>Bienvenido a Codex</h2>
             <p>Selecciona una guía en el panel lateral para comenzar la lectura.</p>
           </div>
         )}
@@ -73,4 +92,3 @@ function App() {
 }
 
 export default App;
-

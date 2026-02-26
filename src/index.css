@@ -736,6 +736,76 @@ body {
   border-color: var(--border-color);
 }
 
+/* Botón de búsqueda web activo */
+.chat-action-btn.web-search-active {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.5);
+  color: #4ade80;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.2);
+}
+
+.chat-action-btn.web-search-active:hover {
+  background: rgba(34, 197, 94, 0.25);
+  border-color: #4ade80;
+}
+
+/* Badge 🌐 en burbujas de asistente enriquecidas con web */
+.chat-web-badge {
+  display: inline-block;
+  margin-top: 0.4rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.72rem;
+  border-radius: 4px;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #4ade80;
+  margin-left: 0.3rem;
+  vertical-align: middle;
+  letter-spacing: 0.3px;
+}
+
+/* Hint en chat vacío cuando la búsqueda web está activa */
+.chat-web-hint {
+  margin-top: 0.6rem;
+  font-size: 0.78rem;
+  color: #4ade80;
+  opacity: 0.85;
+}
+
+/* Indicador de búsqueda en progreso */
+.chat-searching-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #4ade80;
+  padding: 0.4rem 0.6rem;
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 8px;
+  animation: fadeInUp 0.2s ease;
+}
+
+.chat-search-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4ade80;
+  animation: pulse-dot 1s ease infinite;
+  flex-shrink: 0;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.7); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 .chat-title {
   font-size: 0.85rem;
   font-weight: 700;

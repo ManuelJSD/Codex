@@ -1,18 +1,20 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
-/** URL de la API de LM Studio. Usa variable de entorno o localhost por defecto */
-const LM_STUDIO_URL = import.meta.env.VITE_LM_STUDIO_URL || 'http://localhost:1234/v1/chat/completions';
-
 /**
  * Panel de chat con IA conectado a LM Studio.
  * Recibe el contenido de la guía activa como contexto del sistema.
+ * Opcionalmente enriquece el contexto con búsquedas web vía DuckDuckGo.
  */
-export default function ChatPanel({ guideContent, guideName, chatWidth, onResizeStart }) {
+export default function ChatPanel({ guideContent, guideName, aiUrl, chatWidth, onResizeStart }) {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [attachedImage, setAttachedImage] = useState(null);
     const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+    // Modo búsqueda web
+    const [webSearchEnabled, setWebSearchEnabled] = useState(false);
+    const [isSearching, setIsSearching] = useState(false);
 
     // Historial de sesiones
     const [sessions, setSessions] = useState([]);
@@ -133,6 +135,41 @@ export default function ChatPanel({ guideContent, guideName, chatWidth, onResize
         reader.readAsDataURL(file);
     };
 
+    /**
+     * Consulta DuckDuckGo Instant Answer API y devuelve un resumen de texto.
+     * Usa el proxy CORS público de DuckDuckGo para evitar bloqueos del navegador.
+     */
+    const searchWeb = async (query) => {
+        const url = `https://api.duckduckgo.com/?q=${encodeURIComponent(query)}&format=json&no_html=1&skip_disambig=1`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`DuckDuckGo error: ${response.status}`);
+        const data = await response.json();
+
+        const parts = [];
+
+        // Respuesta directa (ej. calculaciones, definiciones)
+        if (data.Answer) {
+            parts.push(`**Respuesta directa:** ${data.Answer}`);
+        }
+
+        // Resumen principal (normalmente desde Wikipedia)
+        if (data.AbstractText) {
+            const source = data.AbstractSource ? ` (Fuente: ${data.AbstractSource})` : '';
+            parts.push(`**Resumen:**${source}\n${data.AbstractText}`);
+        }
+
+        // Tópicos relacionados (primeros 5 como máximo)
+        const topics = (data.RelatedTopics || [])
+            .filter(t => t.Text && t.FirstURL)
+            .slice(0, 5);
+        if (topics.length > 0) {
+            const topicLines = topics.map(t => `- ${t.Text}`).join('\n');
+            parts.push(`**Información relacionada:**\n${topicLines}`);
+        }
+
+        return parts.length > 0 ? parts.join('\n\n') : null;
+    };
+
     const sendMessage = async () => {
         const text = input.trim();
         if ((!text && !attachedImage) || isLoading) return;
@@ -156,10 +193,30 @@ export default function ChatPanel({ guideContent, guideName, chatWidth, onResize
         // Placeholder del asistente para mostrar el streaming
         setMessages(prev => [...prev, { role: 'assistant', content: '', streaming: true }]);
 
-        // Preparar contexto del sistema con el contenido de la guía
-        const systemPrompt = guideContent
-            ? `Eres un asistente experto en videojuegos. El usuario está leyendo la siguiente guía llamada "${guideName}". Responde SOLO sobre el contenido de esta guía, usando la información que contiene. Sé conciso y preciso.\n\n--- INICIO DE LA GUÍA ---\n${guideContent.slice(0, 12000)}\n--- FIN DE LA GUÍA ---`
-            : 'Eres un asistente experto en videojuegos. Sé conciso y preciso.';
+        // Búsqueda web opcional antes de llamar a LM Studio
+        let webContext = null;
+        if (webSearchEnabled && text) {
+            try {
+                setIsSearching(true);
+                webContext = await searchWeb(text);
+            } catch (err) {
+                console.warn('Búsqueda web fallida:', err);
+            } finally {
+                setIsSearching(false);
+            }
+        }
+
+        // Preparar contexto del sistema con la guía y opcionalmente resultados web
+        let systemPrompt;
+        if (guideContent) {
+            systemPrompt = `Eres un asistente experto en videojuegos. El usuario está leyendo la guía "${guideName}". Responde de forma concisa y precisa.\n\n--- INICIO DE LA GUÍA ---\n${guideContent.slice(0, 10000)}\n--- FIN DE LA GUÍA ---`;
+        } else {
+            systemPrompt = 'Eres un asistente experto en videojuegos. Sé conciso y preciso.';
+        }
+
+        if (webContext) {
+            systemPrompt += `\n\n--- INFORMACIÓN WEB ACTUAL (DuckDuckGo) ---\nLa siguiente información fue obtenida de internet para complementar la guía. Úsala si es relevante para responder la pregunta del usuario:\n\n${webContext}\n--- FIN DE INFORMACIÓN WEB ---`;
+        }
 
         // Formatear mensajes para la API de LM Studio (Multimodal si hay imagen)
         const apiMessages = [
@@ -187,7 +244,7 @@ export default function ChatPanel({ guideContent, guideName, chatWidth, onResize
 
         try {
             abortRef.current = new AbortController();
-            const response = await fetch(LM_STUDIO_URL, {
+            const response = await fetch(aiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
@@ -233,7 +290,7 @@ export default function ChatPanel({ guideContent, guideName, chatWidth, onResize
             // Marcar mensaje como completado y guardar sesión definitiva
             setMessages(prev => {
                 const next = [...prev];
-                next[next.length - 1] = { role: 'assistant', content: assistantText };
+                next[next.length - 1] = { role: 'assistant', content: assistantText, webSearch: !!webContext };
                 saveSession(currentSessionId, next);
                 return next;
             });
@@ -286,6 +343,13 @@ export default function ChatPanel({ guideContent, guideName, chatWidth, onResize
                 </div>
                 <div className="chat-header-actions">
                     <button
+                        className={`chat-action-btn ${webSearchEnabled ? 'active web-search-active' : ''}`}
+                        onClick={() => setWebSearchEnabled(v => !v)}
+                        title={webSearchEnabled ? 'Búsqueda web activa (clic para desactivar)' : 'Activar búsqueda web (DuckDuckGo)'}
+                    >
+                        🌐
+                    </button>
+                    <button
                         className={`chat-action-btn ${showHistory ? 'active' : ''}`}
                         onClick={() => setShowHistory(!showHistory)}
                         title="Historial de conversaciones"
@@ -330,6 +394,15 @@ export default function ChatPanel({ guideContent, guideName, chatWidth, onResize
                             {messages.length === 0 && (
                                 <div className="chat-empty">
                                     <p>💬 Hazme una pregunta sobre la guía que estás leyendo.</p>
+                                    {webSearchEnabled && (
+                                        <p className="chat-web-hint">🌐 Búsqueda web activa — también puedo consultar internet.</p>
+                                    )}
+                                </div>
+                            )}
+                            {isSearching && (
+                                <div className="chat-searching-indicator">
+                                    <span className="chat-search-dot" />
+                                    Buscando en internet…
                                 </div>
                             )}
                             {messages.map((msg, i) => (
@@ -346,6 +419,9 @@ export default function ChatPanel({ guideContent, guideName, chatWidth, onResize
                                         {msg.content && <span>{msg.content}</span>}
                                         {!msg.content && msg.streaming && <span className="chat-cursor" />}
                                         {msg.streaming && msg.content && <span className="chat-cursor" />}
+                                        {msg.webSearch && !msg.streaming && (
+                                            <span className="chat-web-badge" title="Respuesta enriquecida con información web">🌐 Web</span>
+                                        )}
                                     </div>
                                 </div>
                             ))}

@@ -102,8 +102,12 @@ function App() {
   };
 
   const saveSettings = () => {
-    setAiUrl(tempUrl);
-    localStorage.setItem('codex-ai-url', tempUrl);
+    let normalizedUrl = tempUrl.trim();
+    if (normalizedUrl && !normalizedUrl.startsWith('http')) {
+      normalizedUrl = `http://${normalizedUrl}`;
+    }
+    setAiUrl(normalizedUrl);
+    localStorage.setItem('codex-ai-url', normalizedUrl);
     setShowSettings(false);
   };
 
